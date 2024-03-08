@@ -21,9 +21,8 @@ func marshalDeepObject(in interface{}, path []string) ([]string, error) {
 	case []interface{}:
 		// For the array, we will use numerical subscripts of the form [x],
 		// in the same order as the array.
-		for i, iface := range t {
-			newPath := append(path, strconv.Itoa(i))
-			fields, err := marshalDeepObject(iface, newPath)
+		for _, iface := range t {
+			fields, err := marshalDeepObject(iface, path)
 			if err != nil {
 				return nil, fmt.Errorf("error traversing array: %w", err)
 			}
@@ -53,7 +52,10 @@ func marshalDeepObject(in interface{}, path []string) ([]string, error) {
 		// Now, for a concrete value, we will turn the path elements
 		// into a deepObject style set of subscripts. [a, b, c] turns into
 		// [a][b][c]
-		prefix := "[" + strings.Join(path, "][") + "]"
+		prefix := ""
+		if len(path) > 0 {
+			prefix = "[" + strings.Join(path, "][") + "]"
+		}
 		result = []string{
 			prefix + fmt.Sprintf("=%v", t),
 		}
@@ -90,10 +92,10 @@ func MarshalDeepObject(i interface{}, paramName string) (string, error) {
 
 type fieldOrValue struct {
 	fields map[string]fieldOrValue
-	value  string
+	value  []string
 }
 
-func (f *fieldOrValue) appendPathValue(path []string, value string) {
+func (f *fieldOrValue) appendPathValue(path []string, value []string) {
 	fieldName := path[0]
 	if len(path) == 1 {
 		f.fields[fieldName] = fieldOrValue{value: value}
@@ -110,8 +112,7 @@ func (f *fieldOrValue) appendPathValue(path []string, value string) {
 	pv.appendPathValue(path[1:], value)
 }
 
-func makeFieldOrValue(paths [][]string, values []string) fieldOrValue {
-
+func makeFieldOrValue(paths [][]string, values [][]string) fieldOrValue {
 	f := fieldOrValue{
 		fields: make(map[string]fieldOrValue),
 	}
@@ -127,17 +128,14 @@ func UnmarshalDeepObject(dst interface{}, paramName string, params url.Values) e
 	// Params are all the query args, so we need those that look like
 	// "paramName["...
 	var fieldNames []string
-	var fieldValues []string
+	var fieldValues [][]string
 	searchStr := paramName + "["
 	for pName, pValues := range params {
 		if strings.HasPrefix(pName, searchStr) {
 			// trim the parameter name from the full name.
 			pName = pName[len(paramName):]
 			fieldNames = append(fieldNames, pName)
-			if len(pValues) != 1 {
-				return fmt.Errorf("%s has multiple values", pName)
-			}
-			fieldValues = append(fieldValues, pValues[0])
+			fieldValues = append(fieldValues, pValues)
 		}
 	}
 
@@ -193,7 +191,7 @@ func fieldIndicesByJSONTag(i interface{}) (map[string]int, error) {
 }
 
 func assignPathValues(dst interface{}, pathValues fieldOrValue) error {
-	//t := reflect.TypeOf(dst)
+	// t := reflect.TypeOf(dst)
 	v := reflect.ValueOf(dst)
 
 	iv := reflect.Indirect(v)
@@ -214,7 +212,7 @@ func assignPathValues(dst interface{}, pathValues fieldOrValue) error {
 		iv.Set(dstMap)
 		return nil
 	case reflect.Slice:
-		sliceLength := len(pathValues.fields)
+		sliceLength := len(pathValues.value)
 		dstSlice := reflect.MakeSlice(it, sliceLength, sliceLength)
 		err := assignSlice(dstSlice, pathValues)
 		if err != nil {
@@ -230,13 +228,13 @@ func assignPathValues(dst interface{}, pathValues fieldOrValue) error {
 
 		// We check to see if the object implements the Binder interface first.
 		if dst, isBinder := v.Interface().(Binder); isBinder {
-			return dst.Bind(pathValues.value)
+			return dst.Bind(pathValues.value[0])
 		}
 		// Then check the legacy types
 		if it.ConvertibleTo(reflect.TypeOf(types.Date{})) {
 			var date types.Date
 			var err error
-			date.Time, err = time.Parse(types.DateFormat, pathValues.value)
+			date.Time, err = time.Parse(types.DateFormat, pathValues.value[0])
 			if err != nil {
 				return fmt.Errorf("invalid date format: %w", err)
 			}
@@ -252,13 +250,13 @@ func assignPathValues(dst interface{}, pathValues fieldOrValue) error {
 		if it.ConvertibleTo(reflect.TypeOf(time.Time{})) {
 			var tm time.Time
 			var err error
-			tm, err = time.Parse(time.RFC3339Nano, pathValues.value)
+			tm, err = time.Parse(time.RFC3339Nano, pathValues.value[0])
 			if err != nil {
 				// Fall back to parsing it as a date.
 				// TODO: why is this marked as an ineffassign?
-				tm, err = time.Parse(types.DateFormat, pathValues.value) //nolint:ineffassign,staticcheck
+				tm, err = time.Parse(types.DateFormat, pathValues.value[0]) //nolint:ineffassign,staticcheck
 				if err != nil {
-					return fmt.Errorf("error parsing '%s' as RFC3339 or 2006-01-02 time: %s", pathValues.value, err)
+					return fmt.Errorf("error parsing '%s' as RFC3339 or 2006-01-02 time: %s", pathValues.value[0], err)
 				}
 				return fmt.Errorf("invalid date format: %w", err)
 			}
@@ -299,35 +297,35 @@ func assignPathValues(dst interface{}, pathValues fieldOrValue) error {
 		iv.Set(dstVal)
 		return err
 	case reflect.Bool:
-		val, err := strconv.ParseBool(pathValues.value)
+		val, err := strconv.ParseBool(pathValues.value[0])
 		if err != nil {
-			return fmt.Errorf("expected a valid bool, got %s", pathValues.value)
+			return fmt.Errorf("expected a valid bool, got %s", pathValues.value[0])
 		}
 		iv.SetBool(val)
 		return nil
 	case reflect.Float32:
-		val, err := strconv.ParseFloat(pathValues.value, 32)
+		val, err := strconv.ParseFloat(pathValues.value[0], 32)
 		if err != nil {
-			return fmt.Errorf("expected a valid float, got %s", pathValues.value)
+			return fmt.Errorf("expected a valid float, got %s", pathValues.value[0])
 		}
 		iv.SetFloat(val)
 		return nil
 	case reflect.Float64:
-		val, err := strconv.ParseFloat(pathValues.value, 64)
+		val, err := strconv.ParseFloat(pathValues.value[0], 64)
 		if err != nil {
-			return fmt.Errorf("expected a valid float, got %s", pathValues.value)
+			return fmt.Errorf("expected a valid float, got %s", pathValues.value[0])
 		}
 		iv.SetFloat(val)
 		return nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		val, err := strconv.ParseInt(pathValues.value, 10, 64)
+		val, err := strconv.ParseInt(pathValues.value[0], 10, 64)
 		if err != nil {
-			return fmt.Errorf("expected a valid int, got %s", pathValues.value)
+			return fmt.Errorf("expected a valid int, got %s", pathValues.value[0])
 		}
 		iv.SetInt(val)
 		return nil
 	case reflect.String:
-		iv.SetString(pathValues.value)
+		iv.SetString(pathValues.value[0])
 		return nil
 	default:
 		return errors.New("unhandled type: " + it.String())
@@ -335,24 +333,9 @@ func assignPathValues(dst interface{}, pathValues fieldOrValue) error {
 }
 
 func assignSlice(dst reflect.Value, pathValues fieldOrValue) error {
-	// Gather up the values
-	nValues := len(pathValues.fields)
-	values := make([]string, nValues)
-	// We expect to have consecutive array indices in the map
-	for i := 0; i < nValues; i++ {
-		indexStr := strconv.Itoa(i)
-		fv, found := pathValues.fields[indexStr]
-		if !found {
-			return errors.New("array deepObjects must have consecutive indices")
-		}
-		values[i] = fv.value
-	}
-
-	// This could be cleaner, but we can call into assignPathValues to
-	// avoid recreating this logic.
-	for i := 0; i < nValues; i++ {
+	for i := 0; i < len(pathValues.value); i++ {
 		dstElem := dst.Index(i).Addr()
-		err := assignPathValues(dstElem.Interface(), fieldOrValue{value: values[i]})
+		err := assignPathValues(dstElem.Interface(), fieldOrValue{value: []string{pathValues.value[i]}})
 		if err != nil {
 			return fmt.Errorf("error binding array: %w", err)
 		}

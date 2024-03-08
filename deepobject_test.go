@@ -10,6 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type InnerArrayObject struct {
+	Names []string
+}
+
 type InnerObject struct {
 	Name string
 	ID   int
@@ -17,20 +21,21 @@ type InnerObject struct {
 
 // These are all possible field types, mandatory and optional.
 type AllFields struct {
-	I   int             `json:"i"`
-	Oi  *int            `json:"oi,omitempty"`
-	F   float32         `json:"f"`
-	Of  *float32        `json:"of,omitempty"`
-	B   bool            `json:"b"`
-	Ob  *bool           `json:"ob,omitempty"`
-	As  []string        `json:"as"`
-	Oas *[]string       `json:"oas,omitempty"`
-	O   InnerObject     `json:"o"`
-	Oo  *InnerObject    `json:"oo,omitempty"`
-	D   MockBinder      `json:"d"`
-	Od  *MockBinder     `json:"od,omitempty"`
-	M   map[string]int  `json:"m"`
-	Om  *map[string]int `json:"om,omitempty"`
+	I    int              `json:"i"`
+	Oi   *int             `json:"oi,omitempty"`
+	F    float32          `json:"f"`
+	Of   *float32         `json:"of,omitempty"`
+	B    bool             `json:"b"`
+	Ob   *bool            `json:"ob,omitempty"`
+	As   []string         `json:"as"`
+	Oas  *[]string        `json:"oas,omitempty"`
+	O    InnerObject      `json:"o"`
+	Onas InnerArrayObject `json:"onas"`
+	Oo   *InnerObject     `json:"oo,omitempty"`
+	D    MockBinder       `json:"d"`
+	Od   *MockBinder      `json:"od,omitempty"`
+	M    map[string]int   `json:"m"`
+	Om   *map[string]int  `json:"om,omitempty"`
 }
 
 func TestDeepObject(t *testing.T) {
@@ -60,6 +65,9 @@ func TestDeepObject(t *testing.T) {
 			Name: "Joe Schmoe",
 			ID:   456,
 		},
+		Onas: InnerArrayObject{
+			Names: []string{"Bill", "Frank"},
+		},
 		Oo: &oo,
 		D:  d,
 		Od: &d,
@@ -69,14 +77,14 @@ func TestDeepObject(t *testing.T) {
 
 	marshaled, err := MarshalDeepObject(srcObj, "p")
 	require.NoError(t, err)
-	t.Log(marshaled)
+	require.EqualValues(t, "p[as]=hello&p[as]=world&p[b]=true&p[d]=2020-02-01&p[f]=4.2&p[i]=12&p[m][additional]=1&p[o][ID]=456&p[o][Name]=Joe Schmoe&p[oas]=foo&p[oas]=bar&p[ob]=true&p[od]=2020-02-01&p[of]=3.7&p[oi]=5&p[om][additional]=1&p[onas][Names]=Bill&p[onas][Names]=Frank&p[oo][ID]=123&p[oo][Name]=Marcin Romaszewicz", marshaled)
 
 	params := make(url.Values)
 	marshaledParts := strings.Split(marshaled, "&")
 	for _, p := range marshaledParts {
 		parts := strings.Split(p, "=")
 		require.Equal(t, 2, len(parts))
-		params.Set(parts[0], parts[1])
+		params.Add(parts[0], parts[1])
 	}
 
 	var dstObj AllFields

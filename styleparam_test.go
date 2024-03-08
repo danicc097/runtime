@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/oapi-codegen/runtime/types"
 	"github.com/google/uuid"
+	"github.com/oapi-codegen/runtime/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -532,7 +532,7 @@ func TestStyleParam(t *testing.T) {
 
 	result, err = StyleParamWithLocation("deepObject", true, "id", ParamLocationQuery, array)
 	assert.NoError(t, err)
-	assert.EqualValues(t, "id[0]=3&id[1]=4&id[2]=5", result)
+	assert.EqualValues(t, "id=3&id=4&id=5", result)
 
 	_, err = StyleParamWithLocation("deepObject", false, "id", ParamLocationQuery, object)
 	assert.Error(t, err)
@@ -688,5 +688,4 @@ func TestStyleParam(t *testing.T) {
 	result, err = StyleParamWithLocation("simple", false, "id", ParamLocationQuery, uuidD)
 	assert.NoError(t, err)
 	assert.EqualValues(t, "972beb41-e5ea-4b31-a79a-96f4999d8769", result)
-
 }
