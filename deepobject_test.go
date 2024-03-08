@@ -11,7 +11,7 @@ import (
 )
 
 type InnerArrayObject struct {
-	Names []string
+	Names []string `json:"names"`
 }
 
 type InnerObject struct {
@@ -23,6 +23,7 @@ type InnerObject struct {
 type AllFields struct {
 	I    int              `json:"i"`
 	Oi   *int             `json:"oi,omitempty"`
+	Ab   *[]bool          `json:"ab,omitempty"`
 	F    float32          `json:"f"`
 	Of   *float32         `json:"of,omitempty"`
 	B    bool             `json:"b"`
@@ -59,6 +60,7 @@ func TestDeepObject(t *testing.T) {
 		Of:  &of,
 		B:   true,
 		Ob:  &ob,
+		Ab:  &[]bool{true},
 		As:  []string{"hello", "world"},
 		Oas: &oas,
 		O: InnerObject{
@@ -77,7 +79,7 @@ func TestDeepObject(t *testing.T) {
 
 	marshaled, err := MarshalDeepObject(srcObj, "p")
 	require.NoError(t, err)
-	require.EqualValues(t, "p[as]=hello&p[as]=world&p[b]=true&p[d]=2020-02-01&p[f]=4.2&p[i]=12&p[m][additional]=1&p[o][ID]=456&p[o][Name]=Joe Schmoe&p[oas]=foo&p[oas]=bar&p[ob]=true&p[od]=2020-02-01&p[of]=3.7&p[oi]=5&p[om][additional]=1&p[onas][Names]=Bill&p[onas][Names]=Frank&p[oo][ID]=123&p[oo][Name]=Marcin Romaszewicz", marshaled)
+	require.EqualValues(t, "p[ab]=true&p[as]=hello&p[as]=world&p[b]=true&p[d]=2020-02-01&p[f]=4.2&p[i]=12&p[m][additional]=1&p[o][ID]=456&p[o][Name]=Joe Schmoe&p[oas]=foo&p[oas]=bar&p[ob]=true&p[od]=2020-02-01&p[of]=3.7&p[oi]=5&p[om][additional]=1&p[onas][names]=Bill&p[onas][names]=Frank&p[oo][ID]=123&p[oo][Name]=Marcin Romaszewicz", marshaled)
 
 	params := make(url.Values)
 	marshaledParts := strings.Split(marshaled, "&")
