@@ -2,12 +2,15 @@ module github.com/danicc097/runtime
 
 go 1.20
 
+replace github.com/oapi-codegen/runtime => ./
+
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.5.0
 	github.com/kataras/iris/v12 v12.2.6-0.20230908161203-24ba4e8933b9
 	github.com/labstack/echo/v4 v4.11.4
+	github.com/oapi-codegen/runtime v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.8.4
 )
 
@@ -73,7 +76,6 @@ require (
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
